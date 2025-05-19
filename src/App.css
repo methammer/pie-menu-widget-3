@@ -1,0 +1,126 @@
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+  margin: 0;
+  overflow: hidden; /* Important for screen bounds */
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start; /* Align to top for header */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 2rem; /* Space for header */
+  position: relative; /* For RadialMenu positioning */
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+  color: #1a202c;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.app-header p {
+  color: #4a5568;
+  font-size: 1rem;
+}
+
+.app-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  padding: 1rem;
+  background-color: #e2e8f0;
+  color: #4a5568;
+  font-size: 0.875rem;
+  border-top: 1px solid #cbd5e0;
+}
+
+/* Radial Menu Specific Styles */
+.radial-menu-center-button {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: #4A90E2; /* Shadcn primary-like blue */
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  border: none;
+  z-index: 1000;
+  position: absolute; /* Will be controlled by Draggable */
+}
+
+.radial-menu-center-button:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.orbital-item-button {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  border: none;
+  position: absolute; /* Positions will be set by JS */
+  z-index: 999;
+  font-size: 0.6rem; /* For label */
+  text-align: center;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.orbital-item-button:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.orbital-item-label {
+  margin-top: 2px;
+  font-size: 0.65rem;
+  color: white;
+  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+  pointer-events: none; /* So it doesn't interfere with hover on the button */
+}
+
+/* Ensure icons within buttons are centered and sized appropriately */
+.radial-menu-center-button svg,
+.orbital-item-button svg {
+  pointer-events: none; /* So they don't interfere with drag/click */
+}
