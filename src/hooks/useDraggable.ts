@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useMotionValue, MotionValue } from 'framer-motion';
+import { useMotionValue } from 'framer-motion'; // Removed MotionValue named import
 
 interface Position {
   x: number;
@@ -14,6 +14,7 @@ export const useDraggable = (
   const [position, setPosition] = useState<Position>(initialPosition);
 
   // Motion values for Framer Motion to directly control via drag.
+  // TypeScript infers their types (MotionValue<number>) from useMotionValue.
   const motionX = useMotionValue(initialPosition.x);
   const motionY = useMotionValue(initialPosition.y);
 
