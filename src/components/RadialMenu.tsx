@@ -175,7 +175,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         size: item.id === hoveredItemId ? ITEM_BASE_SIZE * ITEM_HOVER_SCALE : ITEM_BASE_SIZE,
       }))
     );
-  }, [hoveredItemId, setOrbitalItems]); // Added setOrbitalItems to deps
+  }, [hoveredItemId, setOrbitalItems]);
 
   useEffect(() => {
     if (isOpen) {
@@ -241,12 +241,8 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
             bottom: window.innerHeight - CENTER_BUTTON_SIZE - SCREEN_PADDING 
         }}
         dragMomentum={false} 
-        onDrag={(_event, _info) => { // Marked info as unused
+        onDrag={(_event, _info) => { 
             // The position state is updated by handleDrag via onPan.
-            // If direct manipulation based on framer-motion's internal drag state
-            // was needed here, it would be more complex due to transform vs. absolute positioning.
-            // For now, we rely on onPan to update our position state.
-            // const rect = centerButtonRef.current.getBoundingClientRect(); // rect was unused
         }}
       >
         {isOpen ? <X size={32} /> : <Menu size={32} />}
