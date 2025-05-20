@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, useAnimation } from 'framer-motion'; // PanInfo removed
+import { motion, useAnimation } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import OrbitalItem from './OrbitalItem';
 import { useDraggable } from '@/hooks/useDraggable';
@@ -47,9 +47,9 @@ const SCREEN_PADDING = 20;
 const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
   const [isOpen, setIsOpen] = useState(false);
   const controls = useAnimation();
-  const centerButtonRef = useRef<HTMLButtonElement>(null); // Keep ref for potential other uses
+  const centerButtonRef = useRef<HTMLButtonElement>(null);
 
-  const { position, motionX, motionY } = useDraggable({ // Removed ref, handleDrag, handleDragEnd
+  const { position, motionX, motionY } = useDraggable({
     x: typeof window !== 'undefined' ? window.innerWidth / 2 - CENTER_BUTTON_SIZE / 2 : 0,
     y: typeof window !== 'undefined' ? window.innerHeight / 2 - CENTER_BUTTON_SIZE / 2 : 0,
   });
@@ -74,14 +74,41 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
-  };
+  // Track window size to trigger re-layout on resize
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Refs to hold the latest position and orbitalItems for the layout calculation callback
+  const positionRef = useRef(position);
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
+
+  const orbitalItemsRef = useRef(orbitalItems);
+  useEffect(() => {
+    orbitalItemsRef.current = orbitalItems;
+  }, [orbitalItems]);
+
 
   const updateItemPositions = useCallback(() => {
-    if (!centerButtonRef.current) return; // Though ref not used for drag, keep for other logic if any
+    // Use current values from refs
+    const currentPosition = positionRef.current;
+    const currentOrbitalItems = orbitalItemsRef.current;
+    // `items` prop is stable within this callback's scope unless RadialMenu re-renders with new items prop
+    // `windowSize` is from state and included in useCallback deps
 
-    let newItems = [...orbitalItems];
+    let newItems = [...currentOrbitalItems];
 
     for (let iter = 0; iter < RELAXATION_ITERATIONS; iter++) {
       const nextPositions: { id: string; dx: number; dy: number }[] = [];
@@ -90,12 +117,14 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         const itemA = newItems[i];
         let totalForce: Vector = { x: 0, y: 0 };
 
-        const mainButtonCenterX = position.x + CENTER_BUTTON_SIZE / 2;
-        const mainButtonCenterY = position.y + CENTER_BUTTON_SIZE / 2;
+        const mainButtonCenterX = currentPosition.x + CENTER_BUTTON_SIZE / 2;
+        const mainButtonCenterY = currentPosition.y + CENTER_BUTTON_SIZE / 2;
 
         const itemAbsoluteX = mainButtonCenterX + itemA.x;
         const itemAbsoluteY = mainButtonCenterY + itemA.y;
         
+        // calculateEdgeForce reads window.innerWidth/Height directly, 
+        // windowSize state change triggers this function via useEffect.
         const edgeForce = calculateEdgeForce(
           itemAbsoluteX,
           itemAbsoluteY,
@@ -156,7 +185,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
       });
     }
     setOrbitalItems(newItems);
-  }, [orbitalItems, position.x, position.y, items.length, setOrbitalItems]); // ORBIT_RADIUS_REFERENCE etc. are constants
+  }, [items, setOrbitalItems, windowSize]); // Depends on `items` prop and `windowSize` state. Stable across drags.
 
   useEffect(() => {
     setOrbitalItems(prevItems =>
@@ -168,12 +197,16 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
     );
   }, [hoveredItemId, setOrbitalItems]);
 
+  // This useEffect calls the layout calculation logic.
+  // It runs when factors that require a re-layout change.
+  // Crucially, it does NOT run just because the main button is dragged.
   useEffect(() => {
     if (isOpen) {
       updateItemPositions();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, position.x, position.y, hoveredItemId, items.length]); // updateItemPositions is memoized
+  }, [isOpen, hoveredItemId, items.length, windowSize, updateItemPositions]);
+  // `updateItemPositions` is now stable across drags, so this effect won't run during drag.
 
   useEffect(() => {
     if (isOpen) {
@@ -194,6 +227,10 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
       });
     }
   }, [isOpen, orbitalItems, controls]);
+  
+  const toggleMenu = () => {
+    setIsOpen(!isOpen);
+  };
 
   const handleItemHoverStart = (itemId: string) => {
     setHoveredItemId(itemId);
@@ -213,34 +250,28 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         ref={centerButtonRef}
         className="radial-menu-center-button"
         style={{
-          // Framer Motion will control transform: translateX(motionX) and translateY(motionY)
-          // These motionValues represent the top-left corner of the button.
           x: motionX, 
           y: motionY,
-          // Explicitly set width and height for layout and drag constraint calculations
           width: CENTER_BUTTON_SIZE,
           height: CENTER_BUTTON_SIZE,
         }}
         onClick={toggleMenu}
-        // Removed onPan, onPanEnd, and onDrag handlers
         whileTap={{ scale: 0.95 }}
-        drag // Enable Framer Motion's drag, which updates motionX and motionY
+        drag
         dragConstraints={ typeof window !== 'undefined' ? { 
             left: SCREEN_PADDING, 
             right: window.innerWidth - CENTER_BUTTON_SIZE - SCREEN_PADDING, 
             top: SCREEN_PADDING, 
             bottom: window.innerHeight - CENTER_BUTTON_SIZE - SCREEN_PADDING 
-        } : false } // Conditionally apply constraints
+        } : false }
         dragMomentum={false} 
       >
         {isOpen ? <X size={32} /> : <Menu size={32} />}
       </motion.button>
 
       {items.map((itemData, index) => {
-        // Ensure orbitalItems[index] exists, especially if items array can change length dynamically
-        // For now, assuming items.length is stable for the lifetime of orbitalItems initialization
         const currentItemState = orbitalItems[index];
-        if (!currentItemState) return null; // Basic safety check
+        if (!currentItemState) return null;
 
         return (
           <OrbitalItem
@@ -248,7 +279,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
             custom={index}
             animate={controls}
             item={currentItemState}
-            centerPosition={{ // This uses the reactive `position` state from useDraggable
+            centerPosition={{
               x: position.x + CENTER_BUTTON_SIZE / 2,
               y: position.y + CENTER_BUTTON_SIZE / 2,
             }}
