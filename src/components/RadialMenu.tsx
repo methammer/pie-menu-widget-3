@@ -10,10 +10,10 @@ import {
   Vector,
   addVectors,
   limitMagnitude,
-  subtractVectors,
-  normalizeVector,
-  multiplyVector,
-  getMagnitude,
+  // subtractVectors, // Not used
+  // normalizeVector, // Not used
+  // multiplyVector, // Not used
+  // getMagnitude, // Not used
 } from '@/lib/geometry';
 
 interface OrbitalItemData {
@@ -163,7 +163,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
       });
     }
     setOrbitalItems(newItems);
-  }, [orbitalItems, position.x, position.y, items.length]);
+  }, [orbitalItems, position.x, position.y, items.length, setOrbitalItems, ORBIT_RADIUS_REFERENCE, CENTER_BUTTON_SIZE, SCREEN_PADDING, ITEM_MARGIN, DAMPING_FACTOR, RELAXATION_ITERATIONS]);
 
 
   useEffect(() => {
@@ -175,7 +175,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         size: item.id === hoveredItemId ? ITEM_BASE_SIZE * ITEM_HOVER_SCALE : ITEM_BASE_SIZE,
       }))
     );
-  }, [hoveredItemId]);
+  }, [hoveredItemId, setOrbitalItems]); // Added setOrbitalItems to deps
 
   useEffect(() => {
     if (isOpen) {
@@ -234,38 +234,19 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         onPanEnd={handleDragEnd}
         whileTap={{ scale: 0.95 }}
         drag // Enable framer-motion drag
-        dragConstraints={{ // Optional: constrain dragging to viewport
+        dragConstraints={{ 
             left: SCREEN_PADDING, 
             right: window.innerWidth - CENTER_BUTTON_SIZE - SCREEN_PADDING, 
             top: SCREEN_PADDING, 
             bottom: window.innerHeight - CENTER_BUTTON_SIZE - SCREEN_PADDING 
         }}
-        dragMomentum={false} // To make it feel more direct
-        onDrag={(_event, info) => {
-            // Update position state based on framer-motion's drag info
-            // This is needed if you want your position state to be in sync
-            // with framer-motion's internal drag state.
-            // For this example, framer-motion handles the visual position.
-            // If you need to react to the dragged position for other logic,
-            // you might update your `position` state here.
-            // For now, we let framer-motion handle the visual position directly.
-            // The `position` state from `useDraggable` is mostly for initial setup
-            // or if we weren't using framer-motion's built-in drag.
-            if (centerButtonRef.current) {
-                 // This is a simplified update. A more robust solution might involve
-                 // reconciling framer-motion's transform with your absolute position state.
-                 // For now, we'll assume framer-motion's drag is sufficient for visuals.
-                 // The `position` state is mainly for the orbital items' reference.
-                 const rect = centerButtonRef.current.getBoundingClientRect();
-                 // This is tricky because framer-motion applies a transform.
-                 // We'll rely on the `position` state being updated by `useDraggable`
-                 // if we were using its `handleDrag` for manual transform.
-                 // Since framer-motion's `drag` prop is active, it handles the transform.
-                 // We need to ensure our `position` state (used by orbitals) is correct.
-                 // This might require a different approach if not using framer-motion's drag.
-                 // For now, let's assume `position` is updated correctly by `useDraggable`
-                 // or that framer-motion's drag is the source of truth for the center.
-            }
+        dragMomentum={false} 
+        onDrag={(_event, _info) => { // Marked info as unused
+            // The position state is updated by handleDrag via onPan.
+            // If direct manipulation based on framer-motion's internal drag state
+            // was needed here, it would be more complex due to transform vs. absolute positioning.
+            // For now, we rely on onPan to update our position state.
+            // const rect = centerButtonRef.current.getBoundingClientRect(); // rect was unused
         }}
       >
         {isOpen ? <X size={32} /> : <Menu size={32} />}
