@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, useAnimation, PanInfo } from 'framer-motion';
+import { motion, useAnimation } from 'framer-motion'; // PanInfo removed
 import { Menu, X } from 'lucide-react';
 import OrbitalItem from './OrbitalItem';
 import { useDraggable } from '@/hooks/useDraggable';
@@ -10,10 +10,6 @@ import {
   Vector,
   addVectors,
   limitMagnitude,
-  // subtractVectors, // Not used
-  // normalizeVector, // Not used
-  // multiplyVector, // Not used
-  // getMagnitude, // Not used
 } from '@/lib/geometry';
 
 interface OrbitalItemData {
@@ -44,18 +40,18 @@ const ITEM_BASE_SIZE = 56;
 const ITEM_HOVER_SCALE = 1.2;
 const ORBIT_RADIUS_REFERENCE = 120;
 const RELAXATION_ITERATIONS = 10;
-const DAMPING_FACTOR = 0.3; // How much of the force is applied each step
-const ITEM_MARGIN = 10; // Margin between items and center/edges
-const SCREEN_PADDING = 20; // Padding from screen edges
+const DAMPING_FACTOR = 0.3;
+const ITEM_MARGIN = 10;
+const SCREEN_PADDING = 20;
 
 const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
   const [isOpen, setIsOpen] = useState(false);
   const controls = useAnimation();
-  const centerButtonRef = useRef<HTMLButtonElement>(null);
+  const centerButtonRef = useRef<HTMLButtonElement>(null); // Keep ref for potential other uses
 
-  const { position, handleDrag, handleDragEnd } = useDraggable(centerButtonRef, {
-    x: window.innerWidth / 2 - CENTER_BUTTON_SIZE / 2,
-    y: window.innerHeight / 2 - CENTER_BUTTON_SIZE / 2,
+  const { position, motionX, motionY } = useDraggable({ // Removed ref, handleDrag, handleDragEnd
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - CENTER_BUTTON_SIZE / 2 : 0,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - CENTER_BUTTON_SIZE / 2 : 0,
   });
 
   const [orbitalItems, setOrbitalItems] = useState<ItemState[]>(() =>
@@ -83,7 +79,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
   };
 
   const updateItemPositions = useCallback(() => {
-    if (!centerButtonRef.current) return;
+    if (!centerButtonRef.current) return; // Though ref not used for drag, keep for other logic if any
 
     let newItems = [...orbitalItems];
 
@@ -94,18 +90,20 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         const itemA = newItems[i];
         let totalForce: Vector = { x: 0, y: 0 };
 
-        // 1. Edge avoidance force
-        const itemAbsoluteX = position.x + CENTER_BUTTON_SIZE / 2 + itemA.x;
-        const itemAbsoluteY = position.y + CENTER_BUTTON_SIZE / 2 + itemA.y;
+        const mainButtonCenterX = position.x + CENTER_BUTTON_SIZE / 2;
+        const mainButtonCenterY = position.y + CENTER_BUTTON_SIZE / 2;
+
+        const itemAbsoluteX = mainButtonCenterX + itemA.x;
+        const itemAbsoluteY = mainButtonCenterY + itemA.y;
+        
         const edgeForce = calculateEdgeForce(
           itemAbsoluteX,
           itemAbsoluteY,
-          itemA.size / 2, // radius
+          itemA.size / 2,
           SCREEN_PADDING
         );
         totalForce = addVectors(totalForce, edgeForce);
         
-        // 2. Repulsion from other items
         for (let j = 0; j < newItems.length; j++) {
           if (i === j) continue;
           const itemB = newItems[j];
@@ -116,31 +114,26 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
           totalForce = addVectors(totalForce, repulsion);
         }
 
-        // 3. Repulsion from center button
         const centerRepulsion = calculateRepulsionForce(
           { x: itemA.x, y: itemA.y, radius: itemA.size / 2 + ITEM_MARGIN / 2 },
           { x: 0, y: 0, radius: CENTER_BUTTON_SIZE / 2 + ITEM_MARGIN / 2 }
         );
         totalForce = addVectors(totalForce, centerRepulsion);
 
-
-        // 4. Attraction to ideal orbit (weaker force)
         const idealX = Math.cos(itemA.baseAngle) * ORBIT_RADIUS_REFERENCE;
         const idealY = Math.sin(itemA.baseAngle) * ORBIT_RADIUS_REFERENCE;
         const attraction = calculateAttractionForce(
           { x: itemA.x, y: itemA.y },
           { x: idealX, y: idealY },
-          0.05 // Weaker attraction strength
+          0.05
         );
         totalForce = addVectors(totalForce, attraction);
         
-        // Limit total force to prevent extreme jumps
-        totalForce = limitMagnitude(totalForce, itemA.size / 2); // Max move half its size
+        totalForce = limitMagnitude(totalForce, itemA.size / 2);
 
         nextPositions.push({ id: itemA.id, dx: totalForce.x, dy: totalForce.y });
       }
 
-      // Apply damped movements
       newItems = newItems.map(item => {
         const move = nextPositions.find(p => p.id === item.id);
         if (move) {
@@ -153,9 +146,9 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
             ...item,
             x: newX,
             y: newY,
-            targetX: newX, // Update target for animation
+            targetX: newX,
             targetY: newY,
-            currentRadius: Math.max(0, Math.min(newRadius, ORBIT_RADIUS_REFERENCE * 2)), // Constrain radius
+            currentRadius: Math.max(0, Math.min(newRadius, ORBIT_RADIUS_REFERENCE * 2)),
             currentAngle: newAngle,
           };
         }
@@ -163,11 +156,9 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
       });
     }
     setOrbitalItems(newItems);
-  }, [orbitalItems, position.x, position.y, items.length, setOrbitalItems, ORBIT_RADIUS_REFERENCE, CENTER_BUTTON_SIZE, SCREEN_PADDING, ITEM_MARGIN, DAMPING_FACTOR, RELAXATION_ITERATIONS]);
-
+  }, [orbitalItems, position.x, position.y, items.length, setOrbitalItems]); // ORBIT_RADIUS_REFERENCE etc. are constants
 
   useEffect(() => {
-    // Update item sizes based on hover state
     setOrbitalItems(prevItems =>
       prevItems.map(item => ({
         ...item,
@@ -182,9 +173,8 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
       updateItemPositions();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, position.x, position.y, hoveredItemId, items.length]); // updateItemPositions is memoized but its dependencies are here
+  }, [isOpen, position.x, position.y, hoveredItemId, items.length]); // updateItemPositions is memoized
 
-  // Animation for opening/closing items
   useEffect(() => {
     if (isOpen) {
       controls.start(i => ({
@@ -205,7 +195,6 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
     }
   }, [isOpen, orbitalItems, controls]);
 
-
   const handleItemHoverStart = (itemId: string) => {
     setHoveredItemId(itemId);
   };
@@ -214,11 +203,9 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
     setHoveredItemId(null);
   };
   
-  // Prevent dragging when clicking on an item
   const onItemMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation(); 
   };
-
 
   return (
     <>
@@ -226,44 +213,52 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
         ref={centerButtonRef}
         className="radial-menu-center-button"
         style={{
-          left: position.x,
-          top: position.y,
+          // Framer Motion will control transform: translateX(motionX) and translateY(motionY)
+          // These motionValues represent the top-left corner of the button.
+          x: motionX, 
+          y: motionY,
+          // Explicitly set width and height for layout and drag constraint calculations
+          width: CENTER_BUTTON_SIZE,
+          height: CENTER_BUTTON_SIZE,
         }}
         onClick={toggleMenu}
-        onPan={(_event, info: PanInfo) => handleDrag(info)}
-        onPanEnd={handleDragEnd}
+        // Removed onPan, onPanEnd, and onDrag handlers
         whileTap={{ scale: 0.95 }}
-        drag // Enable framer-motion drag
-        dragConstraints={{ 
+        drag // Enable Framer Motion's drag, which updates motionX and motionY
+        dragConstraints={ typeof window !== 'undefined' ? { 
             left: SCREEN_PADDING, 
             right: window.innerWidth - CENTER_BUTTON_SIZE - SCREEN_PADDING, 
             top: SCREEN_PADDING, 
             bottom: window.innerHeight - CENTER_BUTTON_SIZE - SCREEN_PADDING 
-        }}
+        } : false } // Conditionally apply constraints
         dragMomentum={false} 
-        onDrag={(_event, _info) => { 
-            // The position state is updated by handleDrag via onPan.
-        }}
       >
         {isOpen ? <X size={32} /> : <Menu size={32} />}
       </motion.button>
 
-      {items.map((itemData, index) => (
-        <OrbitalItem
-          key={itemData.id}
-          custom={index}
-          animate={controls}
-          item={orbitalItems[index]}
-          centerPosition={{
-            x: position.x + CENTER_BUTTON_SIZE / 2,
-            y: position.y + CENTER_BUTTON_SIZE / 2,
-          }}
-          onHoverStart={() => handleItemHoverStart(itemData.id)}
-          onHoverEnd={handleItemHoverEnd}
-          onMouseDown={onItemMouseDown}
-          onClick={() => console.log(`${itemData.label} clicked`)}
-        />
-      ))}
+      {items.map((itemData, index) => {
+        // Ensure orbitalItems[index] exists, especially if items array can change length dynamically
+        // For now, assuming items.length is stable for the lifetime of orbitalItems initialization
+        const currentItemState = orbitalItems[index];
+        if (!currentItemState) return null; // Basic safety check
+
+        return (
+          <OrbitalItem
+            key={itemData.id}
+            custom={index}
+            animate={controls}
+            item={currentItemState}
+            centerPosition={{ // This uses the reactive `position` state from useDraggable
+              x: position.x + CENTER_BUTTON_SIZE / 2,
+              y: position.y + CENTER_BUTTON_SIZE / 2,
+            }}
+            onHoverStart={() => handleItemHoverStart(itemData.id)}
+            onHoverEnd={handleItemHoverEnd}
+            onMouseDown={onItemMouseDown}
+            onClick={() => console.log(`${itemData.label} clicked`)}
+          />
+        );
+      })}
     </>
   );
 };
