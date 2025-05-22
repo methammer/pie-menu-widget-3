@@ -145,15 +145,15 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
 
         const centerRepulsion = calculateRepulsionForce(
           { x: itemA.x, y: itemA.y, radius: itemA.size / 2 + ITEM_MARGIN / 2 },
-          { x: 0, y: 0, radius: CENTER_BUTTON_SIZE / 2 + ITEM_MARGIN / 2 }
+          { x: 0, y: 0, radius: CENTER_BUTTON_SIZE / 2 + ITEM_MARGIN / 2 } // Center button is at (0,0) in relative space
         );
         totalForce = addVectors(totalForce, centerRepulsion);
 
         const idealX = Math.cos(itemA.baseAngle) * ORBIT_RADIUS_REFERENCE;
         const idealY = Math.sin(itemA.baseAngle) * ORBIT_RADIUS_REFERENCE;
         const attraction = calculateAttractionForce(
-          { x: itemA.x, y: itemA.y },
-          { x: idealX, y: idealY },
+          { x: itemA.x, y: itemA.y }, // Current relative position
+          { x: idealX, y: idealY },   // Target relative position
           0.05
         );
         totalForce = addVectors(totalForce, attraction);
@@ -213,8 +213,8 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
       controls.start(i => ({
         opacity: 1,
         scale: orbitalItems[i].scale,
-        x: orbitalItems[i].targetX,
-        y: orbitalItems[i].targetY,
+        x: orbitalItems[i].targetX, // Relative X offset
+        y: orbitalItems[i].targetY, // Relative Y offset
         transition: { type: 'spring', stiffness: 300, damping: 20, delay: i * 0.05 },
       }));
     } else {
@@ -279,7 +279,7 @@ const RadialMenu: React.FC<RadialMenuProps> = ({ items }) => {
             custom={index}
             animate={controls}
             item={currentItemState}
-            centerPosition={{
+            centerPosition={{ // Absolute center of the main button
               x: position.x + CENTER_BUTTON_SIZE / 2,
               y: position.y + CENTER_BUTTON_SIZE / 2,
             }}

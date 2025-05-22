@@ -6,8 +6,8 @@ interface ItemState {
   icon: React.ReactNode;
   label: string;
   color: string;
-  x: number;
-  y: number;
+  x: number; // Relative X (from animate prop, originally item.targetX)
+  y: number; // Relative Y (from animate prop, originally item.targetY)
   targetX: number;
   targetY: number;
   scale: number;
@@ -16,7 +16,7 @@ interface ItemState {
 
 interface OrbitalItemProps {
   item: ItemState;
-  centerPosition: { x: number; y: number };
+  centerPosition: { x: number; y: number }; // Absolute center of the main button
   animate: AnimationControls;
   custom: number; // Index for animation delay
   onHoverStart: () => void;
@@ -38,17 +38,15 @@ const OrbitalItem: React.FC<OrbitalItemProps> = ({
   return (
     <motion.button
       custom={custom}
-      animate={animate}
+      animate={animate} // Applies item.targetX as x, item.targetY as y
       initial={{ opacity: 0, scale: 0.5, x: 0, y: 0 }}
       className="orbital-item-button"
       style={{
         backgroundColor: item.color,
-        // Position is relative to the center button, then offset by centerPosition
-        // Framer Motion will handle the x and y from animate prop relative to its parent's flow,
-        // but since these are absolutely positioned, we need to set left/top.
-        // The x, y from item state are offsets from the center of the main button.
-        left: centerPosition.x - item.size / 2, // Adjust for item size to center it
-        top: centerPosition.y - item.size / 2,  // Adjust for item size to center it
+        // Base position: top-left of item is set so its center aligns with centerPosition
+        // if animated x,y were 0.
+        left: centerPosition.x - item.size / 2,
+        top: centerPosition.y - item.size / 2,
         width: item.size,
         height: item.size,
       }}

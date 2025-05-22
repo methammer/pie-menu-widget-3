@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useMotionValue } from 'framer-motion'; // Removed MotionValue named import
+import { useMotionValue } from 'framer-motion'; 
 
 interface Position {
   x: number;
