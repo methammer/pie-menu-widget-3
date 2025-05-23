@@ -171,7 +171,7 @@ interface UseRadialMenuPositionsProps {
 }
 
 const ANGLE_EPSILON = 1e-5;
-const MAX_ITERATIONS_FOR_RADIUS_ADJUSTMENT = 10; // Can be increased if needed
+const MAX_ITERATIONS_FOR_RADIUS_ADJUSTMENT = 100; // Increased for better convergence
 const ORBIT_RADIUS_INCREMENT_PIXELS = 5; 
 const MAX_ORBIT_RADIUS_FACTOR = 3; 
 
