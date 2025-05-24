@@ -19,7 +19,6 @@ interface DraggableRadialMenuProps {
   mainIconSize?: number;
   dragThreshold?: number;
   hoverScale?: number;
-  hoveredItemRadialPush?: number; // New prop for individual item push
 }
 
 interface Position {
@@ -163,28 +162,28 @@ interface SafeArc {
 interface UseRadialMenuPositionsProps {
   isOpen: boolean;
   centerPosition: Position;
-  items: MenuItem[];
+  items: MenuItem[]; // Changed from numItems
   initialOrbitRadius: number; 
   itemSize: number;
   mainButtonSize: number;
-  hoveredItemId: string | null;
-  hoverScale: number;
+  hoveredItemId: string | null; // New prop
+  hoverScale: number; // New prop
 }
 
 const ANGLE_EPSILON = 1e-5;
-const MAX_ITERATIONS_FOR_RADIUS_ADJUSTMENT = 100;
+const MAX_ITERATIONS_FOR_RADIUS_ADJUSTMENT = 100; // Increased for better convergence
 const ORBIT_RADIUS_INCREMENT_PIXELS = 5; 
 const MAX_ORBIT_RADIUS_FACTOR = 3; 
 
 function useRadialMenuPositions({
   isOpen,
   centerPosition,
-  items,
+  items, // Use items array
   initialOrbitRadius,
   itemSize,
   mainButtonSize,
-  hoveredItemId,
-  hoverScale,
+  hoveredItemId, // Use new prop
+  hoverScale,   // Use new prop
 }: UseRadialMenuPositionsProps) {
   const numItems = items.length;
 
@@ -217,6 +216,7 @@ function useRadialMenuPositions({
     const mainButtonCenterX = centerPosition.x + mainButtonSize / 2;
     const mainButtonCenterY = centerPosition.y + mainButtonSize / 2;
     
+    // For safe angle calculation, consider the largest possible item size (hovered item)
     const itemRadiusForSafeAngle = (itemSize * hoverScale) / 2;
 
 
@@ -227,6 +227,7 @@ function useRadialMenuPositions({
       const isSafeAngle = (angle: number): boolean => {
         const itemCenterX = mainButtonCenterX + currentOrbitRadius * Math.cos(angle);
         const itemCenterY = mainButtonCenterY + currentOrbitRadius * Math.sin(angle);
+        // Check against viewport boundaries using the largest possible item radius
         return (
           itemCenterX - itemRadiusForSafeAngle >= 0 &&
           itemCenterX + itemRadiusForSafeAngle <= viewportSize.width &&
@@ -278,6 +279,8 @@ function useRadialMenuPositions({
       let totalSafeAngleLength = safeArcs.reduce((sum, arc) => sum + arc.length, 0);
 
       if (numItems > 0) {
+        // This placement logic assumes equal spacing, which is a simplification.
+        // The overlap detection below is what will drive radius increases if items (especially hovered) are too close.
         if (totalSafeAngleLength < ANGLE_EPSILON * numItems) { 
             const angleBetweenItems = (2 * Math.PI) / numItems;
             for (let i = 0; i < numItems; i++) {
@@ -328,6 +331,7 @@ function useRadialMenuPositions({
         }
       }
       
+      // Overlap detection using actual item sizes (hovered or not)
       let overlapDetected = false;
       if (calculatedPositions.length > 1 && items.length === calculatedPositions.length) {
         for (let i = 0; i < calculatedPositions.length; i++) {
@@ -340,6 +344,7 @@ function useRadialMenuPositions({
             
             const requiredDistance = (size_i / 2) + (size_j / 2);
 
+            // calculatedPositions[i] and [j] hold {x, y, angle} relative to main button center
             const pos_i_abs_x = mainButtonCenterX + calculatedPositions[i].x;
             const pos_i_abs_y = mainButtonCenterY + calculatedPositions[i].y;
             const pos_j_abs_x = mainButtonCenterX + calculatedPositions[j].x;
@@ -359,29 +364,33 @@ function useRadialMenuPositions({
       }
 
       if (!overlapDetected) {
-        break;
+        break; // No overlap, current radius and positions are good
       }
       if (currentOrbitRadius >= maxOrbitRadius) {
+        // Max radius reached, use current positions even if there's overlap
         break; 
       }
       
+      // If overlap detected and not at max radius, increase radius and try again
       currentOrbitRadius += ORBIT_RADIUS_INCREMENT_PIXELS;
       currentOrbitRadius = Math.min(currentOrbitRadius, maxOrbitRadius);
     } 
     
+    // Ensure positions are sorted by angle for consistent rendering if needed,
+    // though the primary effect comes from the x,y values themselves.
     setItemPositions(calculatedPositions.sort((a,b) => a.angle - b.angle));
 
   }, [
     isOpen, 
     centerPosition, 
-    items,
+    items, // Added items to dependency array
     initialOrbitRadius, 
     itemSize, 
     mainButtonSize, 
     viewportSize.width, 
     viewportSize.height,
-    hoveredItemId,
-    hoverScale
+    hoveredItemId, // Added hoveredItemId
+    hoverScale    // Added hoverScale
   ]);
 
   return itemPositions;
@@ -397,11 +406,8 @@ const DEFAULT_MAIN_ICON_SIZE = 28;
 const CLICK_TIMEOUT_DURATION = 150; 
 const DEFAULT_HOVER_SCALE = 1.3;
 const ITEM_DESCRIPTION_SCALE_FACTOR = 0.7; 
-const HOVER_INTENT_DELAY = 75;
-const HOVER_LEAVE_DELAY = 50;
-// Default value for the new prop: 25% of itemSize
-const DEFAULT_HOVERED_ITEM_RADIAL_PUSH_FACTOR = 0.25; 
-
+const HOVER_INTENT_DELAY = 75; // Delay before hover state is fully registered
+const HOVER_LEAVE_DELAY = 50; // Delay before hover state is cleared
 
 export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
   items,
@@ -412,7 +418,6 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
   mainIconSize = DEFAULT_MAIN_ICON_SIZE,
   dragThreshold = DEFAULT_DRAG_THRESHOLD,
   hoverScale = DEFAULT_HOVER_SCALE,
-  hoveredItemRadialPush, // Use the new prop
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isInteractingWithButton, setIsInteractingWithButton] = useState(false);
@@ -421,8 +426,6 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Calculate default for hoveredItemRadialPush if not provided
-  const actualHoveredItemRadialPush = hoveredItemRadialPush ?? itemSize * DEFAULT_HOVERED_ITEM_RADIAL_PUSH_FACTOR;
 
   const { position, handleInteractionStart, hasMovedBeyondThreshold } = useDraggable(menuRef, {
     initialPosition: { 
@@ -433,15 +436,16 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
     dragThreshold: dragThreshold,
   });
 
+  // Pass items, actualHoveredItemId, and hoverScale to the hook
   const itemPositions = useRadialMenuPositions({
     isOpen,
     centerPosition: position, 
-    items,
+    items, // Pass the full items array
     initialOrbitRadius: orbitRadius, 
     itemSize,
     mainButtonSize,
-    hoveredItemId: actualHoveredItemId,
-    hoverScale,
+    hoveredItemId: actualHoveredItemId, // Pass the ID
+    hoverScale, // Pass the scale factor
   });
 
   const clearHoverStateAndTimers = useCallback(() => {
@@ -456,7 +460,7 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
     if (!hasMovedBeyondThreshold && !isInteractingWithButton) {
       setIsOpen(prev => {
         const nextIsOpen = !prev;
-        if (!nextIsOpen) {
+        if (!nextIsOpen) { // If closing menu
           clearHoverStateAndTimers();
         }
         return nextIsOpen;
@@ -466,6 +470,7 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
     }
   }, [hasMovedBeyondThreshold, isInteractingWithButton, clearHoverStateAndTimers]);
   
+  // Clear timers on unmount
   useEffect(() => {
     return () => {
       if (hoverTimerRef.current) {
@@ -475,7 +480,7 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
   }, []);
   
   const handleItemMouseEnter = useCallback((itemId: string) => {
-    if (hoverTimerRef.current) {
+    if (hoverTimerRef.current) { // Clear any pending leave timer
       clearTimeout(hoverTimerRef.current);
     }
     hoverTimerRef.current = setTimeout(() => {
@@ -485,11 +490,13 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
   }, []);
 
   const handleItemMouseLeave = useCallback((itemId: string) => {
-    if (hoverTimerRef.current) {
+    if (hoverTimerRef.current) { // Clear any pending enter timer if mouse moves out quickly
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
+    // Set a timer to clear hover, allowing for re-entry into same or different item
     hoverTimerRef.current = setTimeout(() => {
+      // Only clear if the current hovered item is indeed the one we are leaving
       setActualHoveredItemId(prevHoveredId => (prevHoveredId === itemId ? null : prevHoveredId));
       hoverTimerRef.current = null;
     }, HOVER_LEAVE_DELAY);
@@ -498,30 +505,22 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
   const MainIconComponent = isOpen ? XIcon : MenuIcon;
 
   const memoizedItems = useMemo(() => items.map((item, index) => {
-    const pos = itemPositions[index];
+    const pos = itemPositions[index]; // Assumes itemPositions is in the same order as items
     if (!pos) return null;
 
     const isHovered = item.id === actualHoveredItemId;
     
+    // Hitbox size remains consistently large to catch hover easily
     const hitboxEffectiveSize = itemSize * hoverScale; 
+    // Visual item's base size before scaling
     const visualItemBaseSize = itemSize;
 
-    let effectivePosX = pos.x;
-    let effectivePosY = pos.y;
-
-    if (isOpen && isHovered && pos.angle != null) { // Ensure angle is available
-      // Calculate the base radius from pos.x and pos.y (which is currentOrbitRadius for this item)
-      // This is not strictly necessary if pos.x and pos.y are already at the correct currentOrbitRadius
-      // We just need to push it further along the angle.
-      const radialPush = actualHoveredItemRadialPush;
-      effectivePosX += Math.cos(pos.angle) * radialPush;
-      effectivePosY += Math.sin(pos.angle) * radialPush;
-    }
+    // Position the hitbox based on calculated positions from the hook
+    // These positions (pos.x, pos.y) are offsets from the main button's center
+    const hitboxX = mainButtonSize / 2 + pos.x - hitboxEffectiveSize / 2;
+    const hitboxY = mainButtonSize / 2 + pos.y - hitboxEffectiveSize / 2;
     
-    const hitboxX = mainButtonSize / 2 + effectivePosX - hitboxEffectiveSize / 2;
-    const hitboxY = mainButtonSize / 2 + effectivePosY - hitboxEffectiveSize / 2;
-    
-    const visualItemScale = isOpen ? (isHovered ? hoverScale : 1) : 0.3;
+    const visualItemScale = isOpen ? (isHovered ? hoverScale : 1) : 0.3; // Visual scale
     const showDescription = isHovered && isOpen && item.description;
     
     const currentIconSize = showDescription ? itemIconSize * ITEM_DESCRIPTION_SCALE_FACTOR : itemIconSize;
@@ -529,10 +528,10 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
     
     const paddingTopForDescription = showDescription ? `${currentIconSize * 0.15}px` : '0px';
     const descriptionMarginTop = showDescription ? `${currentIconSize * 0.1}px` : '0px';
-    const itemPadding = showDescription ? '2px' : '0px';
+    const itemPadding = showDescription ? '2px' : '0px'; // Padding for visual item when description shows
 
     return (
-      <div
+      <div // HITBOX (handles hover and click, positions items)
         key={item.id}
         style={{
           position: 'absolute',
@@ -545,10 +544,11 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
           justifyContent: 'center',
           cursor: 'pointer',
           opacity: isOpen ? 1 : 0,
-          transitionProperty: 'opacity, left, top', // left and top transitions will animate the push
-          transitionDuration: isOpen ? '0.25s' : '0.15s',
+          // Transition for opacity (fade in/out with menu) and position (smooth push)
+          transitionProperty: 'opacity, left, top',
+          transitionDuration: isOpen ? '0.25s' : '0.15s', // Faster fade out when closing
           transitionTimingFunction: 'ease-out',
-          willChange: 'opacity, left, top',
+          willChange: 'opacity, left, top', // Hint browser for optimization
           zIndex: isHovered ? 20 : 10,
         }}
         onMouseEnter={() => isOpen && handleItemMouseEnter(item.id)}
@@ -556,11 +556,11 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
         onClick={(e) => {
           e.stopPropagation(); 
           item.action?.();
-          setIsOpen(false);
-          clearHoverStateAndTimers();
+          setIsOpen(false); // Close menu on item click
+          clearHoverStateAndTimers(); // Reset hover state
         }}
       >
-        <div
+        <div // VISUAL ITEM (the actual circle and icon)
           style={{
             width: visualItemBaseSize,
             height: visualItemBaseSize,
@@ -579,7 +579,7 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
           className="rounded-full bg-sky-500 hover:bg-sky-400 text-white shadow-lg"
           title={!showDescription ? item.label : ""} 
         >
-          <div
+          <div // CONTENT WRAPPER (for description layout within visual item)
             style={{
               width: '100%',
               height: '100%',
@@ -621,20 +621,7 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
         </div>
       </div>
     );
-  }), [
-    items, 
-    itemPositions, 
-    isOpen, 
-    mainButtonSize, 
-    itemSize, 
-    itemIconSize, 
-    actualHoveredItemId, 
-    hoverScale, 
-    handleItemMouseEnter, 
-    handleItemMouseLeave, 
-    clearHoverStateAndTimers,
-    actualHoveredItemRadialPush // Added to dependency array
-  ]);
+  }), [items, itemPositions, isOpen, mainButtonSize, itemSize, itemIconSize, actualHoveredItemId, hoverScale, handleItemMouseEnter, handleItemMouseLeave, clearHoverStateAndTimers]);
 
   return (
     <div
@@ -664,9 +651,11 @@ export const DraggableRadialMenu: React.FC<DraggableRadialMenuProps> = ({
       >
         <MainIconComponent size={mainIconSize} className={`transition-transform duration-300 ease-in-out ${isOpen ? 'rotate-180' : ''}`} />
       </button>
+      {/* Container for menu items, positioned relative to the main button div */}
       <div 
         className="absolute"
         style={{ 
+          // Centering the item orbit origin within the mainButtonSize x mainButtonSize area
           top: `0px`, 
           left: `0px`,
           width: `${mainButtonSize}px`, 
